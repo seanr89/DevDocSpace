@@ -1,0 +1,12 @@
+{
+  "name": "devdocspace",
+  "private": true,
+  "scripts": {
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:api": "dotnet watch --project apps/api/DevDocSpace.Api",
+    "test:web": "npm --prefix apps/web test",
+    "test:api": "dotnet test apps/api"
+  }
+}
