@@ -12,17 +12,26 @@ Node 24, .NET 10 SDK, Docker.
 
 ## Run locally
 
+The `Makefile` wraps the db/api/web dev loop. Run `make help` for the full list.
+
 ```bash
-npm run db:up                                   # Postgres on :5432
+make install     # dotnet restore + tool restore, npm install, creates apps/web/.env.local
+                  # fill in NEXT_PUBLIC_FIREBASE_* in apps/web/.env.local before signing in
 
-# API (http://localhost:5080) — applies migrations on start in Development
-cd apps/api
-dotnet run --project DevDocSpace.Api
+make dev         # starts Postgres, then runs api + web in this terminal (Ctrl+C stops all)
+                  # API:  http://localhost:5080
+                  # Web:  http://localhost:3000
+```
 
-# Web (http://localhost:3000)
-cd apps/web
-cp .env.example .env.local                      # fill in NEXT_PUBLIC_FIREBASE_*
-npm install && npm run dev
+`make dev` runs both processes in the background and tails their logs; from another terminal, `make status` shows what's running and `make stop` shuts down the api/web processes (the database keeps running — use `make db-down` to stop it too). If a `make dev` session gets orphaned (e.g. the terminal was closed), `make stop` still cleans it up by PID file and by process name.
+
+Individual pieces, each in the foreground in their own terminal:
+
+```bash
+make db-up        # Postgres on :5432 (make db-down / make db-reset / make db-psql / make db-logs)
+make api          # API on :5080, applies EF Core migrations on start in Development
+make api-watch    # API with hot reload
+make web          # web app on :3000
 ```
 
 Configure the API via `apps/api/DevDocSpace.Api/appsettings.Development.json` or environment variables:
@@ -37,8 +46,8 @@ After signing in as an admin, open **Admin → Sync from content store** to regi
 ## Test
 
 ```bash
-cd apps/api && dotnet test
-cd apps/web && npm run lint && npm run typecheck && npm test && npx playwright test
+make api-test                                # or: make api-test FILTER="FullyQualifiedName~ProxyTests"
+make web-lint web-typecheck web-test web-e2e
 ```
 
 ## Full stack with Docker

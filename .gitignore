@@ -22,6 +22,9 @@ TestResults/
 !.env.example
 firebase-service-account*.json
 
+# make dev (logs/pids for background api+web processes)
+.dev/
+
 # OS / editors
 .DS_Store
 .idea/

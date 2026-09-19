@@ -12,14 +12,13 @@ DevDocSpace is a developer portal: Markdown docs + interactive OpenAPI reference
 
 ## Commands
 
-Postgres: `npm run db:up` from the repo root (Docker; API expects `localhost:5432`, db/user/password `devdocspace`).
+`make help` lists all targets. `make dev` starts Postgres + API + web together (backgrounds both, tails their logs, `Ctrl+C` or `make stop` from another terminal tears them down); `make status` shows what's running. Individual pieces: `make db-up`/`db-down`/`db-reset`/`db-psql`, `make api`/`api-watch`, `make web`. The Makefile is a thin wrapper — see it for the underlying commands, notably:
 
-API (`apps/api`):
 ```bash
-dotnet build && dotnet test
-dotnet test --filter "FullyQualifiedName~ProxyTests"        # one test class
-dotnet run --project DevDocSpace.Api                         # http://localhost:5080 (5000 clashes with macOS AirPlay)
-dotnet ef migrations add <Name> --project DevDocSpace.Data   # local tool manifest pins dotnet-ef
+dotnet build && dotnet test                                  # apps/api
+dotnet test --filter "FullyQualifiedName~ProxyTests"         # one test class (make api-test FILTER=...)
+dotnet run --project DevDocSpace.Api                          # http://localhost:5080 (5000 clashes with macOS AirPlay)
+dotnet ef migrations add <Name> --project DevDocSpace.Data    # local tool manifest pins dotnet-ef (make migrate applies)
 ```
 In Development the API runs `Database.Migrate()` on startup; OpenAPI at `/openapi/v1.json`.
 
