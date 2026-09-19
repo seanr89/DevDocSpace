@@ -1,0 +1,92 @@
+# Reusable workflow: a service repository calls this on merge to main to publish
+# its docs and OpenAPI spec into the portal's content store.
+#
+# Example caller (in the service repo):
+#   jobs:
+#     publish-docs:
+#       uses: <org>/DevDocSpace/.github/workflows/ingest-content.yml@main
+#       with:
+#         namespace: payments
+#         docs_path: docs
+#         service: payments
+#         version: v1
+#         spec_path: build/openapi.json
+#       secrets:
+#         portal_token: ${{ secrets.DEVDOCSPACE_PUBLISH_TOKEN }}
+
+name: Ingest content
+
+on:
+  workflow_call:
+    inputs:
+      namespace:
+        description: Documentation namespace slug (content/docs/<namespace>)
+        required: false
+        type: string
+      docs_path:
+        description: Path to the Markdown docs directory in the calling repo
+        required: false
+        type: string
+      service:
+        description: Service name (content/specs/<service>)
+        required: false
+        type: string
+      version:
+        description: API version (content/specs/<service>/<version>)
+        required: false
+        type: string
+      spec_path:
+        description: Path to the OpenAPI JSON file in the calling repo
+        required: false
+        type: string
+      portal_repo:
+        description: owner/name of the DevDocSpace repository
+        required: false
+        type: string
+        default: ${{ github.repository_owner }}/DevDocSpace
+    secrets:
+      portal_token:
+        description: Token with contents:write on the portal repository
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout service repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout portal repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.portal_repo }}
+          token: ${{ secrets.portal_token }}
+          path: portal
+
+      - name: Copy docs
+        if: inputs.namespace != '' && inputs.docs_path != ''
+        run: |
+          rm -rf "portal/content/docs/${{ inputs.namespace }}"
+          mkdir -p "portal/content/docs/${{ inputs.namespace }}"
+          cp -R "source/${{ inputs.docs_path }}/." "portal/content/docs/${{ inputs.namespace }}/"
+
+      - name: Copy spec
+        if: inputs.service != '' && inputs.version != '' && inputs.spec_path != ''
+        run: |
+          mkdir -p "portal/content/specs/${{ inputs.service }}/${{ inputs.version }}"
+          cp "source/${{ inputs.spec_path }}" "portal/content/specs/${{ inputs.service }}/${{ inputs.version }}/openapi.json"
+
+      - name: Commit and push
+        working-directory: portal
+        run: |
+          git config user.name "devdocspace-bot"
+          git config user.email "devdocspace-bot@users.noreply.github.com"
+          git add content
+          if git diff --cached --quiet; then
+            echo "No content changes."
+            exit 0
+          fi
+          git commit -m "content: sync from ${{ github.repository }}@${{ github.sha }}"
+          git push
