@@ -17,6 +17,7 @@ The `Makefile` wraps the db/api/web dev loop. Run `make help` for the full list.
 ```bash
 make install     # dotnet restore + tool restore, npm install, creates apps/web/.env.local
                   # fill in NEXT_PUBLIC_FIREBASE_* in apps/web/.env.local before signing in
+                  # see FIREBASE_SETUP.md for how to get those values
 
 make dev         # starts Postgres, then runs api + web in this terminal (Ctrl+C stops all)
                   # API:  http://localhost:5080
@@ -40,6 +41,8 @@ Configure the API via `apps/api/DevDocSpace.Api/appsettings.Development.json` or
 - `Auth:AdminEmails` — emails that become `Admin` on first sign-in
 - `Auth:UseFirebaseEmulator` — accept unsigned tokens from the Firebase Auth emulator (Development only)
 - `Proxy:Credentials:<key>:{Header,Value}` — upstream credentials referenced by a spec environment's `credentialKey`
+
+See **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)** for step-by-step instructions on creating a Firebase project, enabling sign-in providers, and wiring the config into both apps (including the auth emulator and Docker Compose).
 
 After signing in as an admin, open **Admin → Sync from content store** to register the specs in `content/specs`, then set each spec's environment base URLs and required role.
 
