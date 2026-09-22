@@ -7,12 +7,12 @@ import { ApiError, type ApiClient } from "./api";
 type State<T> = { data: T | null; error: Error | null };
 
 export function useApiData<T>(load: (api: ApiClient) => Promise<T>, deps: unknown[]) {
-  const { api, firebaseUser } = useAuth();
+  const { api, user } = useAuth();
   const [state, setState] = useState<State<T>>({ data: null, error: null });
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!user) return;
     let cancelled = false;
     load(api).then(
       (data) => !cancelled && setState({ data, error: null }),
@@ -22,7 +22,7 @@ export function useApiData<T>(load: (api: ApiClient) => Promise<T>, deps: unknow
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, firebaseUser, version, ...deps]);
+  }, [api, user, version, ...deps]);
 
   return {
     data: state.data,

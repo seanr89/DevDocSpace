@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { API_URL, ApiError, createApiClient, proxyUrl, rewriteToProxy } from "./api";
+import { API_URL, ApiError, bearerHeaders, createApiClient, proxyUrl, rewriteToProxy } from "./api";
 
 describe("rewriteToProxy", () => {
   it("replaces a matching spec server URL with the proxy route", () => {
@@ -25,7 +25,7 @@ describe("createApiClient", () => {
       new Response(JSON.stringify({ id: "1", email: "a@b.c", role: "Admin" }), { headers: { "content-type": "application/json" } }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const api = createApiClient(async () => "tok");
+    const api = createApiClient(bearerHeaders(async () => "tok"));
     const me = await api.me();
     expect(me.role).toBe("Admin");
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
@@ -33,9 +33,18 @@ describe("createApiClient", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
   });
 
+  it("sends whatever headers the auth provider returns", async () => {
+    const fetchMock = vi.fn(async () => new Response("[]", { headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const api = createApiClient(async () => ({ "X-Dev-User": "dev@devdocspace.local" }));
+    await api.specs();
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.headers).toEqual({ "X-Dev-User": "dev@devdocspace.local" });
+  });
+
   it("throws ApiError with status on failure", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
-    const api = createApiClient(async () => null);
+    const api = createApiClient(async () => ({}));
     await expect(api.doc("ns", "missing")).rejects.toMatchObject({ status: 404 } satisfies Partial<ApiError>);
   });
 });

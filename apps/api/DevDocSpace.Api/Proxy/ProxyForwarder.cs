@@ -9,7 +9,7 @@ public class ProxyForwarder(IHttpClientFactory httpClientFactory, IOptions<Proxy
     {
         "Host", "Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailer",
         "Transfer-Encoding", "Upgrade", "Content-Length", "Origin", "Referer", "Cookie",
-        "Authorization", ApiKeyAuthenticationHandler.HeaderName,
+        "Authorization", ApiKeyAuthenticationHandler.HeaderName, DevAuthHandler.HeaderName,
     };
 
     private static readonly HashSet<string> StrippedResponseHeaders = new(StringComparer.OrdinalIgnoreCase)

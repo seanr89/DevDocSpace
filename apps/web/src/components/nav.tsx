@@ -12,7 +12,7 @@ const links = [
 
 export function Nav() {
   const pathname = usePathname();
-  const { me, firebaseUser, signOut } = useAuth();
+  const { me, user, devAuth, signOut } = useAuth();
 
   return (
     <header className="border-b border-zinc-200 dark:border-zinc-800">
@@ -37,10 +37,18 @@ export function Nav() {
           )}
         </nav>
         <div className="ml-auto text-sm flex items-center gap-3">
-          {firebaseUser ? (
+          {devAuth && (
+            <span
+              title="Signed in via the local dev-auth stand-in, not Firebase. Never enabled in production builds."
+              className="rounded bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 px-1.5 py-0.5 text-xs"
+            >
+              dev auth
+            </span>
+          )}
+          {user ? (
             <>
               <span className="text-zinc-500">
-                {me?.email ?? firebaseUser.email}
+                {me?.email ?? user.email}
                 {me && <span className="ml-2 rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-xs">{me.role}</span>}
               </span>
               <button onClick={signOut} className="underline">

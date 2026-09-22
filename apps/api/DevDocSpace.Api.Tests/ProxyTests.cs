@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using DevDocSpace.Api.Auth;
 using DevDocSpace.Data.Entities;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -96,12 +97,14 @@ public class ProxyTests : IAsyncLifetime
 
         var client = factory.CreateClientAs("dev", "dev@example.com");
         client.DefaultRequestHeaders.Add("Cookie", "session=abc");
+        client.DefaultRequestHeaders.Add(DevAuthHandler.HeaderName, "dev@example.com");
         var res = await client.GetAsync("/api/v1/proxy/echo/v1/sandbox/whoami");
         var echo = await res.Content.ReadFromJsonAsync<JsonElement>();
         var headers = echo.GetProperty("headers");
 
         Assert.Equal("Bearer upstream-secret", headers.GetProperty("Authorization").GetString());
         Assert.False(headers.TryGetProperty("Cookie", out _));
+        Assert.False(headers.TryGetProperty(DevAuthHandler.HeaderName, out _));
         Assert.False(res.Headers.Contains("Set-Cookie"));
         Assert.Equal("yes", res.Headers.GetValues("X-Upstream").Single());
     }

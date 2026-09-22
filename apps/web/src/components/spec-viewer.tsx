@@ -23,18 +23,17 @@ export function SpecViewer({
   version: string;
   env: ApiEnvironment;
 }) {
-  const { firebaseUser } = useAuth();
+  const { getAuthHeaders } = useAuth();
   const serverKey = ((spec.servers as { url: string }[] | undefined) ?? []).map((s) => s.url).join("|");
 
   const requestInterceptor = useMemo(() => {
     const servers = serverKey ? serverKey.split("|") : [];
     return async (req: SwaggerRequest) => {
       req.url = rewriteToProxy(req.url as string, servers, service, version, env);
-      const token = await firebaseUser?.getIdToken();
-      if (token) (req.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+      Object.assign(req.headers as Record<string, string>, await getAuthHeaders());
       return req;
     };
-  }, [serverKey, service, version, env, firebaseUser]);
+  }, [serverKey, service, version, env, getAuthHeaders]);
 
   return (
     <div className="swagger-wrapper">

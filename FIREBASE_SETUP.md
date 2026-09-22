@@ -2,6 +2,8 @@
 
 DevDocSpace uses Firebase only for authentication. The web app signs users in with the Firebase Auth client SDK and sends the resulting ID token to the API as `Authorization: Bearer <token>`; the API verifies that token against Google's public keys — it never calls the Firebase Admin SDK or needs a service account. Roles (`ExternalClient`/`InternalDeveloper`/`Admin`) live in the API's own database, not in Firebase.
 
+> **Don't need this yet?** The local stack works without Firebase: leave `NEXT_PUBLIC_FIREBASE_*` unset and the sign-in page offers preset dev users instead (see "Dev auth" in the README). Come back here when you want real sign-in.
+
 This guide walks through creating a Firebase project and wiring its config into both apps. Do this once per environment (local dev, staging, prod each get their own Firebase project or at least their own Web App).
 
 ## 1. Create a Firebase project
@@ -110,13 +112,14 @@ See `docker-compose.yml` for how these map to `Auth__FirebaseProjectId` and `NEX
 - Register a separate Web App (or a separate Firebase project entirely) per environment so dev/staging/prod tokens can't cross over.
 - In **Authentication → Settings → Authorized domains**, add your deployed web app's domain(s) — Firebase rejects sign-in from origins not on this list.
 - The `NEXT_PUBLIC_FIREBASE_API_KEY` is not a secret (it identifies the Firebase project to Google's client SDK; access is still governed by your sign-in providers and the API's own RBAC) — restricting it via Google Cloud API key restrictions is good practice but not required for the app to function correctly.
-- Keep `Auth:UseFirebaseEmulator` unset (or `false`) outside Development; the API enforces this at startup.
+- Keep `Auth:UseFirebaseEmulator` and `Auth:UseDevAuth` unset (or `false`) outside Development; the API enforces both at startup.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| Sign-in page shows "Firebase is not configured" | A `NEXT_PUBLIC_FIREBASE_*` var is missing in `.env.local`; restart `npm run dev` after editing it. |
+| Sign-in page shows "Firebase is not configured" | A `NEXT_PUBLIC_FIREBASE_*` var is missing in `.env.local` (in a production build; `next dev` falls back to dev auth instead); restart after editing it. |
+| Sign-in page shows "Local development sign-in" instead of Google/email | `NEXT_PUBLIC_FIREBASE_API_KEY` is empty or `NEXT_PUBLIC_DEV_AUTH=true`; restart `npm run dev` after editing `.env.local`. |
 | Sign-in succeeds but every API call returns 401 | `Auth:FirebaseProjectId` on the API doesn't match `NEXT_PUBLIC_FIREBASE_PROJECT_ID` on the web app. |
 | Google sign-in popup errors with `auth/unauthorized-domain` | Add your dev/deployed origin under **Authentication → Settings → Authorized domains**. |
 | Signed in but stuck without admin access | Your email isn't in `Auth:AdminEmails`, or it was added after you already signed in once — see step 5. |

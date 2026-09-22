@@ -16,8 +16,8 @@ The `Makefile` wraps the db/api/web dev loop. Run `make help` for the full list.
 
 ```bash
 make install     # dotnet restore + tool restore, npm install, creates apps/web/.env.local
-                  # fill in NEXT_PUBLIC_FIREBASE_* in apps/web/.env.local before signing in
-                  # see FIREBASE_SETUP.md for how to get those values
+                  # no Firebase needed to start: see "Dev auth" below
+                  # for real sign-in, fill in NEXT_PUBLIC_FIREBASE_* (FIREBASE_SETUP.md)
 
 make dev         # starts Postgres, then runs api + web in this terminal (Ctrl+C stops all)
                   # API:  http://localhost:5080
@@ -35,11 +35,18 @@ make api-watch    # API with hot reload
 make web          # web app on :3000
 ```
 
+### Dev auth (before Firebase is configured)
+
+Out of the box the local stack runs without Firebase. When `NEXT_PUBLIC_FIREBASE_API_KEY` is empty (or `NEXT_PUBLIC_DEV_AUTH=true`) under `next dev`, the sign-in page offers preset local users — **Admin**, **Internal developer**, **External client** (`*@devdocspace.local`) — or any email you type. The web app then sends `X-Dev-User: <email>` instead of a Firebase token, and the API (`Auth:UseDevAuth`, on by default in `appsettings.Development.json`) trusts it (`DevAuthHandler`). A "dev auth" badge shows in the nav while this is active.
+
+Roles still live in the database: `Auth:AdminEmails` seeds `Admin` and `Auth:DevUsers` (email → role) seeds the other presets, both on first sign-in only, so the admin UI can change them afterwards. Dev auth is Development-only — the API refuses to start with it enabled elsewhere and the web app never enables it in a production build. Once you set the `NEXT_PUBLIC_FIREBASE_*` variables the web app switches to real Firebase sign-in; set `Auth:UseDevAuth=false` if you also want the API to stop accepting the header.
+
 Configure the API via `apps/api/DevDocSpace.Api/appsettings.Development.json` or environment variables:
 
 - `Auth:FirebaseProjectId` — required; must match `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
 - `Auth:AdminEmails` — emails that become `Admin` on first sign-in
 - `Auth:UseFirebaseEmulator` — accept unsigned tokens from the Firebase Auth emulator (Development only)
+- `Auth:UseDevAuth` / `Auth:DevUsers` — trust the `X-Dev-User` header and seed preset roles (Development only, see above)
 - `Proxy:Credentials:<key>:{Header,Value}` — upstream credentials referenced by a spec environment's `credentialKey`
 
 See **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)** for step-by-step instructions on creating a Firebase project, enabling sign-in providers, and wiring the config into both apps (including the auth emulator and Docker Compose).
