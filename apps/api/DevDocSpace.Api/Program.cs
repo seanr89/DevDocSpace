@@ -41,11 +41,13 @@ builder.Services.AddAuthentication(o =>
         o.DefaultScheme = "Smart";
         o.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     })
-    .AddPolicyScheme("Smart", "Firebase JWT or API key", o =>
+    .AddPolicyScheme("Smart", "Firebase JWT, API key or dev header", o =>
         o.ForwardDefaultSelector = ctx =>
             ctx.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName)
                 ? ApiKeyAuthenticationHandler.SchemeName
-                : JwtBearerDefaults.AuthenticationScheme)
+                : authOptions.UseDevAuth && ctx.Request.Headers.ContainsKey(DevAuthHandler.HeaderName)
+                    ? DevAuthHandler.SchemeName
+                    : JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {
         var issuer = $"https://securetoken.google.com/{authOptions.FirebaseProjectId}";
@@ -74,6 +76,14 @@ builder.Services.AddAuthentication(o =>
     })
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
         ApiKeyAuthenticationHandler.SchemeName, null);
+
+if (authOptions.UseDevAuth)
+{
+    if (!builder.Environment.IsDevelopment())
+        throw new InvalidOperationException("Auth:UseDevAuth is only allowed in the Development environment.");
+    builder.Services.AddAuthentication()
+        .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DevAuthHandler>(DevAuthHandler.SchemeName, null);
+}
 
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, RoleRequirementHandler>();
 builder.Services.AddAuthorizationBuilder()

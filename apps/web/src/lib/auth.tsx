@@ -7,28 +7,36 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
-  type User as FirebaseUser,
 } from "firebase/auth";
 import { getFirebaseAuth } from "./firebase";
-import { createApiClient, type ApiClient, type Me } from "./api";
+import { bearerHeaders, createApiClient, type ApiClient, type AuthHeaderProvider, type Me } from "./api";
+import { clearDevUser, devAuthHeaders, isDevAuthEnabled, loadDevUser, saveDevUser } from "./dev-auth";
+
+export type AuthUser = { uid: string; email: string | null };
 
 type AuthState = {
   loading: boolean;
   configError: string | null;
-  firebaseUser: FirebaseUser | null;
+  // True when the app is using the local dev-auth stand-in instead of Firebase.
+  devAuth: boolean;
+  user: AuthUser | null;
   me: Me | null;
   api: ApiClient;
+  getAuthHeaders: AuthHeaderProvider;
   signInWithGoogle: () => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  signInAsDevUser: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [devAuth] = useState(isDevAuthEnabled);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [configError] = useState<string | null>(() => {
+    if (devAuth) return null;
     try {
       getFirebaseAuth();
       return null;
@@ -38,27 +46,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [loading, setLoading] = useState(configError === null);
 
-  const api = useMemo(
-    () => createApiClient(async () => getFirebaseAuth().currentUser?.getIdToken() ?? null),
-    [],
+  const getAuthHeaders = useMemo<AuthHeaderProvider>(
+    () =>
+      devAuth
+        ? async () => {
+            const email = loadDevUser();
+            return email ? devAuthHeaders(email) : {};
+          }
+        : bearerHeaders(async () => getFirebaseAuth().currentUser?.getIdToken()),
+    [devAuth],
   );
+  const api = useMemo(() => createApiClient(getAuthHeaders), [getAuthHeaders]);
 
+  const loadMe = useCallback(async () => {
+    try {
+      setMe(await api.me());
+    } catch {
+      setMe(null);
+    }
+  }, [api]);
+
+  // Firebase mode: follow the SDK's auth state.
   useEffect(() => {
-    if (configError) return;
-    return onAuthStateChanged(getFirebaseAuth(), async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        try {
-          setMe(await api.me());
-        } catch {
-          setMe(null);
-        }
-      } else {
-        setMe(null);
-      }
+    if (devAuth || configError) return;
+    return onAuthStateChanged(getFirebaseAuth(), async (fbUser) => {
+      setUser(fbUser ? { uid: fbUser.uid, email: fbUser.email } : null);
+      if (fbUser) await loadMe();
+      else setMe(null);
       setLoading(false);
     });
-  }, [api, configError]);
+  }, [devAuth, configError, loadMe]);
+
+  // Dev mode: restore whichever preset user was picked last.
+  useEffect(() => {
+    if (!devAuth) return;
+    const email = loadDevUser();
+    let cancelled = false;
+    (async () => {
+      if (email) {
+        setUser({ uid: `dev:${email}`, email });
+        await loadMe();
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [devAuth, loadMe]);
 
   const signInWithGoogle = useCallback(async () => {
     await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
@@ -66,13 +100,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithPassword = useCallback(async (email: string, password: string) => {
     await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
   }, []);
+  const signInAsDevUser = useCallback(
+    async (email: string) => {
+      if (!devAuth) throw new Error("Dev auth is not enabled");
+      saveDevUser(email);
+      setUser({ uid: `dev:${email}`, email });
+      await loadMe();
+    },
+    [devAuth, loadMe],
+  );
   const signOut = useCallback(async () => {
+    if (devAuth) {
+      clearDevUser();
+      setUser(null);
+      setMe(null);
+      return;
+    }
     await firebaseSignOut(getFirebaseAuth());
-  }, []);
+  }, [devAuth]);
 
   const value = useMemo(
-    () => ({ loading, configError, firebaseUser, me, api, signInWithGoogle, signInWithPassword, signOut }),
-    [loading, configError, firebaseUser, me, api, signInWithGoogle, signInWithPassword, signOut],
+    () => ({
+      loading, configError, devAuth, user, me, api, getAuthHeaders,
+      signInWithGoogle, signInWithPassword, signInAsDevUser, signOut,
+    }),
+    [loading, configError, devAuth, user, me, api, getAuthHeaders, signInWithGoogle, signInWithPassword, signInAsDevUser, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

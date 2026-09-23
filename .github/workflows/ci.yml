@@ -29,8 +29,6 @@ jobs:
       - run: npx playwright test
         env:
           NEXT_PUBLIC_API_URL: http://localhost:5080
-          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
 
   api:
     runs-on: ubuntu-latest

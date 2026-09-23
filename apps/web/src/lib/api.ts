@@ -27,7 +27,17 @@ export class ApiError extends Error {
   }
 }
 
-export type TokenProvider = () => Promise<string | null>;
+// Returns the headers that authenticate a request: a Firebase bearer token, or the dev-auth header locally.
+export type AuthHeaderProvider = () => Promise<Record<string, string>>;
+
+export function bearerHeaders(getToken: () => Promise<string | null | undefined>): AuthHeaderProvider {
+  return async () => {
+    const token = await getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  };
+}
 
 export function proxyUrl(service: string, version: string, env: ApiEnvironment, path: string): string {
   return `${API_URL}/api/v1/proxy/${encodeURIComponent(service)}/${encodeURIComponent(version)}/${env.toLowerCase()}/${path.replace(/^\/+/, "")}`;
@@ -40,11 +50,9 @@ export function rewriteToProxy(originalUrl: string, serverUrls: string[], servic
   return proxyUrl(service, version, env, remainder);
 }
 
-export function createApiClient(getToken: TokenProvider) {
+export function createApiClient(getAuthHeaders: AuthHeaderProvider) {
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const token = await getToken();
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const headers = { ...(await getAuthHeaders()) };
     if (body !== undefined) headers["Content-Type"] = "application/json";
 
     const res = await fetch(`${API_URL}/api/v1${path}`, {
