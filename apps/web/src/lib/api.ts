@@ -14,10 +14,14 @@ export type CallLog = {
   id: number; service: string; version: string; environment: ApiEnvironment;
   method: string; path: string; statusCode: number; durationMs: number; at: string;
 };
+// Where content comes from: the ingested content store, the portal database, or a database override of an ingested file.
+export type ContentSource = "ingested" | "managed" | "overridden";
 export type AdminSpec = {
-  id: string; service: string; version: string; path: string; requiredRole: Role;
+  id: string; service: string; version: string; path: string | null; requiredRole: Role;
   environments: { name: ApiEnvironment; baseUrl: string; credentialKey: string | null }[];
+  source: ContentSource; contentUpdatedAt: string | null;
 };
+export type AdminDocPage = { path: string; source: ContentSource; updatedAt: string | null };
 export type AdminNamespace = { id: string; slug: string; title: string | null; requiredRole: Role };
 export type AdminUser = { id: string; email: string; role: Role; createdAt: string };
 
@@ -49,6 +53,10 @@ export function rewriteToProxy(originalUrl: string, serverUrls: string[], servic
   const remainder = matched ? originalUrl.slice(matched.length) : new URL(originalUrl).pathname + new URL(originalUrl).search;
   return proxyUrl(service, version, env, remainder);
 }
+
+const encodePath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
+const specUrl = (service: string, version: string) => `/admin/specs/${encodeURIComponent(service)}/${encodeURIComponent(version)}`;
+const docPageUrl = (ns: string, path: string) => `/admin/docs/${encodeURIComponent(ns)}/pages/${encodePath(path)}`;
 
 export function createApiClient(getAuthHeaders: AuthHeaderProvider) {
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -82,7 +90,16 @@ export function createApiClient(getAuthHeaders: AuthHeaderProvider) {
       specs: () => request<AdminSpec[]>("GET", "/admin/specs"),
       syncSpecs: () => request<{ discovered: number; added: number }>("POST", "/admin/specs/sync"),
       updateSpec: (service: string, version: string, body: { requiredRole: Role; environments: AdminSpec["environments"] }) =>
-        request<void>("PUT", `/admin/specs/${encodeURIComponent(service)}/${encodeURIComponent(version)}`, body),
+        request<void>("PUT", specUrl(service, version), body),
+      createSpec: (body: { service: string; version: string; requiredRole: Role; content: string }) =>
+        request<void>("POST", "/admin/specs", body),
+      specContent: (service: string, version: string) => request<Record<string, unknown>>("GET", `${specUrl(service, version)}/content`),
+      updateSpecContent: (service: string, version: string, content: string) =>
+        request<void>("PUT", `${specUrl(service, version)}/content`, { content }),
+      revertSpecContent: (service: string, version: string) => request<void>("DELETE", `${specUrl(service, version)}/content`),
+      docPages: (ns: string) => request<AdminDocPage[]>("GET", `/admin/docs/${encodeURIComponent(ns)}/pages`),
+      saveDocPage: (ns: string, path: string, markdown: string) => request<void>("PUT", docPageUrl(ns, path), { markdown }),
+      deleteDocPage: (ns: string, path: string) => request<void>("DELETE", docPageUrl(ns, path)),
       namespaces: () => request<AdminNamespace[]>("GET", "/admin/namespaces"),
       updateNamespace: (slug: string, body: { title: string | null; requiredRole: Role }) =>
         request<void>("PUT", `/admin/namespaces/${encodeURIComponent(slug)}`, body),

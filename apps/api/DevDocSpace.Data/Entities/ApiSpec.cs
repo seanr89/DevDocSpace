@@ -5,8 +5,15 @@ public class ApiSpec
     public Guid Id { get; set; }
     public required string Service { get; set; }
     public required string Version { get; set; }
-    public required string Path { get; set; }
+    // Relative path in the content store; null when the spec exists only in the database.
+    public string? Path { get; set; }
     public Role RequiredRole { get; set; } = Role.InternalDeveloper;
+
+    // Portal-authored spec JSON; when set it is served instead of the file at Path.
+    public string? Content { get; set; }
+    public DateTimeOffset? ContentUpdatedAt { get; set; }
+    public Guid? ContentUpdatedById { get; set; }
+    public User? ContentUpdatedBy { get; set; }
 
     public ICollection<ServiceEnvironment> Environments { get; set; } = [];
 }
