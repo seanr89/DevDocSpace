@@ -17,15 +17,25 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/admin").RequireAuthorization(Policies.Admin);
 
+        group.MapAdminContent();
+
         group.MapGet("/specs", async (AppDbContext db, CancellationToken ct) =>
-            Results.Ok(await db.ApiSpecs.Include(s => s.Environments)
+            Results.Ok((await db.ApiSpecs.Include(s => s.Environments)
                 .OrderBy(s => s.Service).ThenBy(s => s.Version)
                 .Select(s => new
                 {
                     s.Id, s.Service, s.Version, s.Path, RequiredRole = s.RequiredRole.ToString(),
                     Environments = s.Environments.Select(e => new { Name = e.Name.ToString(), e.BaseUrl, e.CredentialKey }),
+                    HasContent = s.Content != null,
+                    s.ContentUpdatedAt,
                 })
-                .ToListAsync(ct)));
+                .ToListAsync(ct))
+                .Select(s => new
+                {
+                    s.Id, s.Service, s.Version, s.Path, s.RequiredRole, s.Environments,
+                    Source = AdminContentEndpoints.SpecSource(s.HasContent, s.Path),
+                    s.ContentUpdatedAt,
+                })));
 
         group.MapPost("/specs/sync", async (AppDbContext db, IContentStore store, CancellationToken ct) =>
         {

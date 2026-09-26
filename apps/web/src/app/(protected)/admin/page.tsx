@@ -1,26 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useApiData } from "@/lib/use-api-data";
 import { ENVIRONMENTS, type AdminSpec, type ApiEnvironment, type Role } from "@/lib/api";
-
-const ROLES: Role[] = ["ExternalClient", "InternalDeveloper", "Admin"];
-
-const inputCls = "rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-2 py-1 text-sm";
-const btnCls = "rounded bg-zinc-900 text-white dark:bg-white dark:text-black px-3 py-1 text-sm font-medium";
+import { AdminOnly, ROLES, SourceBadge, btnCls, errorMessage, inputCls, secondaryBtnCls } from "@/components/admin-ui";
 
 export default function AdminPage() {
-  const { me } = useAuth();
-  if (me && me.role !== "Admin") return <main className="p-8 text-sm text-red-600">Admin access required.</main>;
-
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 space-y-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Admin</h1>
-      <SpecsSection />
-      <NamespacesSection />
-      <UsersSection />
-    </main>
+    <AdminOnly>
+      <main className="mx-auto max-w-6xl px-4 py-10 space-y-12">
+        <h1 className="text-3xl font-semibold tracking-tight">Admin</h1>
+        <SpecsSection />
+        <NamespacesSection />
+        <UsersSection />
+      </main>
+    </AdminOnly>
   );
 }
 
@@ -42,6 +38,9 @@ function SpecsSection() {
         <button onClick={sync} className={btnCls}>
           Sync from content store
         </button>
+        <Link href="/admin/specs/new" className={secondaryBtnCls}>
+          New spec
+        </Link>
         {syncResult && <span className="text-sm text-zinc-500">{syncResult}</span>}
       </div>
       {specs.error && <p className="mt-2 text-sm text-red-600">{specs.error}</p>}
@@ -66,6 +65,17 @@ function SpecEditor({ spec, onSaved }: { spec: AdminSpec; onSaved: () => void })
     return init;
   });
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function revert() {
+    if (!confirm(`Discard the portal edits to ${spec.service} ${spec.version} and serve the ingested file again?`)) return;
+    try {
+      await api.admin.revertSpecContent(spec.service, spec.version);
+      onSaved();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
 
   async function save() {
     await api.admin.updateSpec(spec.service, spec.version, {
@@ -86,6 +96,7 @@ function SpecEditor({ spec, onSaved }: { spec: AdminSpec; onSaved: () => void })
         <span className="font-medium">
           {spec.service} <span className="text-zinc-500">{spec.version}</span>
         </span>
+        <SourceBadge source={spec.source} />
         <label className="text-sm flex items-center gap-2">
           Required role
           <select value={role} onChange={(e) => setRole(e.target.value as Role)} className={inputCls}>
@@ -94,7 +105,7 @@ function SpecEditor({ spec, onSaved }: { spec: AdminSpec; onSaved: () => void })
             ))}
           </select>
         </label>
-        <span className="ml-auto text-xs text-zinc-500 font-mono">{spec.path}</span>
+        <span className="ml-auto text-xs text-zinc-500 font-mono">{spec.path ?? "database only"}</span>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {ENVIRONMENTS.map((e) => (
@@ -119,7 +130,19 @@ function SpecEditor({ spec, onSaved }: { spec: AdminSpec; onSaved: () => void })
         <button onClick={save} className={btnCls}>
           Save
         </button>
+        <Link
+          href={`/admin/specs/${encodeURIComponent(spec.service)}/${encodeURIComponent(spec.version)}`}
+          className={secondaryBtnCls}
+        >
+          Edit content
+        </Link>
+        {spec.source === "overridden" && (
+          <button onClick={revert} className={secondaryBtnCls}>
+            Revert to ingested
+          </button>
+        )}
         {saved && <span className="text-sm text-zinc-500">Saved.</span>}
+        {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
     </div>
   );
@@ -142,7 +165,12 @@ function NamespacesSection() {
 
   return (
     <section>
-      <h2 className="text-xl font-semibold">Documentation namespaces</h2>
+      <div className="flex items-center gap-4">
+        <h2 className="text-xl font-semibold">Documentation namespaces</h2>
+        <Link href="/admin/docs" className={secondaryBtnCls}>
+          Edit pages
+        </Link>
+      </div>
       <p className="mt-1 text-sm text-zinc-500">Namespaces without a policy are visible to every signed-in user.</p>
       <form onSubmit={upsert} className="mt-3 flex flex-wrap gap-2">
         <input required placeholder="slug" value={slug} onChange={(e) => setSlug(e.target.value)} className={inputCls} />

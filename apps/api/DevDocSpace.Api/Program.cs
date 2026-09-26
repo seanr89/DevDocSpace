@@ -26,7 +26,8 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();
-builder.Services.AddSingleton<IContentStore, FileSystemContentStore>();
+builder.Services.AddSingleton<FileSystemContentStore>();
+builder.Services.AddScoped<IContentStore, OverlayContentStore>();
 builder.Services.AddScoped<ProxyForwarder>();
 builder.Services.AddHttpClient(ProxyOptions.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(proxyOptions.TimeoutSeconds))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler

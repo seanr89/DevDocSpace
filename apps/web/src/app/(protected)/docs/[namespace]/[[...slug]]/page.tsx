@@ -1,6 +1,8 @@
 "use client";
 
 import { use } from "react";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { useApiData } from "@/lib/use-api-data";
 import { DocTree } from "@/components/doc-tree";
 import { Markdown } from "@/components/markdown";
@@ -8,6 +10,7 @@ import { Markdown } from "@/components/markdown";
 export default function DocPage({ params }: { params: Promise<{ namespace: string; slug?: string[] }> }) {
   const { namespace, slug } = use(params);
   const path = slug?.join("/") ?? "index";
+  const { me } = useAuth();
 
   const tree = useApiData((api) => api.docTree(namespace), [namespace]);
   const doc = useApiData((api) => api.doc(namespace, path), [namespace, path]);
@@ -20,6 +23,13 @@ export default function DocPage({ params }: { params: Promise<{ namespace: strin
         {tree.error && <p className="text-xs text-red-600">{tree.error}</p>}
       </aside>
       <main className="min-w-0">
+        {me?.role === "Admin" && (
+          <div className="mb-4 flex justify-end">
+            <Link href={`/admin/docs/${encodeURIComponent(namespace)}/${path}`} className="text-sm underline">
+              Edit page
+            </Link>
+          </div>
+        )}
         {doc.loading && <p className="text-sm text-zinc-500">Loading…</p>}
         {doc.error && <p className="text-sm text-red-600">{doc.status === 404 ? "Page not found." : doc.error}</p>}
         {doc.data && <Markdown source={doc.data} />}
