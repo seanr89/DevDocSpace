@@ -48,3 +48,46 @@ describe("createApiClient", () => {
     await expect(api.doc("ns", "missing")).rejects.toMatchObject({ status: 404 } satisfies Partial<ApiError>);
   });
 });
+
+describe("admin content client", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stub(body = "", init: ResponseInit = { status: 204 }) {
+    const fetchMock = vi.fn(async () => new Response(init.status === 204 ? null : body, init));
+    vi.stubGlobal("fetch", fetchMock);
+    return () => fetchMock.mock.calls.map((c) => {
+      const [url, req] = c as unknown as [string, RequestInit];
+      return { url, method: req.method, body: req.body ? JSON.parse(req.body as string) : undefined };
+    });
+  }
+
+  it("creates a spec", async () => {
+    const calls = stub("", { status: 201 });
+    await createApiClient(async () => ({})).admin.createSpec({ service: "demo", version: "v1", requiredRole: "Admin", content: "{}" });
+    expect(calls()).toEqual([
+      { url: `${API_URL}/api/v1/admin/specs`, method: "POST", body: { service: "demo", version: "v1", requiredRole: "Admin", content: "{}" } },
+    ]);
+  });
+
+  it("updates and reverts spec content with encoded segments", async () => {
+    const calls = stub();
+    const api = createApiClient(async () => ({}));
+    await api.admin.updateSpecContent("my svc", "v1", "{}");
+    await api.admin.revertSpecContent("my svc", "v1");
+    expect(calls()).toEqual([
+      { url: `${API_URL}/api/v1/admin/specs/my%20svc/v1/content`, method: "PUT", body: { content: "{}" } },
+      { url: `${API_URL}/api/v1/admin/specs/my%20svc/v1/content`, method: "DELETE", body: undefined },
+    ]);
+  });
+
+  it("saves and deletes doc pages, encoding each path segment", async () => {
+    const calls = stub();
+    const api = createApiClient(async () => ({}));
+    await api.admin.saveDocPage("guides", "auth/my page", "# Hi");
+    await api.admin.deleteDocPage("guides", "auth/my page");
+    expect(calls()).toEqual([
+      { url: `${API_URL}/api/v1/admin/docs/guides/pages/auth/my%20page`, method: "PUT", body: { markdown: "# Hi" } },
+      { url: `${API_URL}/api/v1/admin/docs/guides/pages/auth/my%20page`, method: "DELETE", body: undefined },
+    ]);
+  });
+});

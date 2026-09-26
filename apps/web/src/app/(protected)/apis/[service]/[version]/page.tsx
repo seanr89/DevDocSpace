@@ -1,7 +1,9 @@
 "use client";
 
 import { Suspense, use } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth";
 import { ENVIRONMENTS, type ApiEnvironment } from "@/lib/api";
 import { useApiData } from "@/lib/use-api-data";
 import { SpecViewer } from "@/components/spec-viewer";
@@ -9,6 +11,7 @@ import { SpecViewer } from "@/components/spec-viewer";
 function SpecPageInner({ params }: { params: Promise<{ service: string; version: string }> }) {
   const { service, version } = use(params);
   const router = useRouter();
+  const { me } = useAuth();
   const search = useSearchParams();
   const envParam = search.get("env");
   const env: ApiEnvironment = ENVIRONMENTS.find((e) => e.toLowerCase() === envParam?.toLowerCase()) ?? "Sandbox";
@@ -64,6 +67,11 @@ function SpecPageInner({ params }: { params: Promise<{ service: string; version:
             );
           })}
         </div>
+        {me?.role === "Admin" && (
+          <Link href={`/admin/specs/${encodeURIComponent(service)}/${encodeURIComponent(version)}`} className="ml-auto text-sm underline">
+            Edit spec
+          </Link>
+        )}
       </div>
 
       {spec.loading && <p className="mt-6 text-sm text-zinc-500">Loading spec…</p>}

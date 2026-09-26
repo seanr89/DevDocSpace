@@ -22,11 +22,13 @@ The frontend is a TypeScript/React application; the backend is a .NET service th
 
 ### A. The Documentation Engine
 *   **Content Ingestion:** Documentation lives as Markdown/MDX in the source code repositories of the respective services. A GitHub Action extracts these files on merge to `main` and publishes them into the portal's content store (`content/docs/<namespace>/` today; cloud storage later).
+*   **Portal Authoring:** Admins can also create and edit Markdown pages in the portal. These are stored in PostgreSQL (`DocPage`) and overlay the content store: a portal page at the same namespace/path is served instead of the ingested file until an admin reverts it.
 *   **Rendering:** The frontend fetches Markdown from the backend (`/api/v1/docs/...`) and server-side renders it as MDX.
 *   **Global Search (deferred):** A search index (Meilisearch) over Markdown headers and OpenAPI operation IDs is planned for a later phase.
 
 ### B. Interactive API Specifications (Swagger Integration)
 *   **Spec Aggregation:** Underlying services generate OpenAPI 3.0/3.1 JSON files automatically. They are published to `content/specs/<service>/<version>/openapi.json`; the backend maintains a registry (`ApiSpec` table) mapping each spec to a required role and its environment base URLs.
+*   **Portal Authoring:** Admins can register a spec directly in the portal or edit an ingested one. The JSON is stored on the `ApiSpec` row and served instead of the file; reverting clears it. Portal-only specs have no content-store path.
 *   **UI Rendering:** `swagger-ui-react` renders the OpenAPI specs into human-readable reference pages.
 *   **Versioning:** The UI includes a dropdown to toggle between API versions (e.g., v1 vs. v2) by loading the respective spec from `/api/v1/specs/{service}/{version}`.
 
@@ -45,6 +47,7 @@ Not all documentation or endpoints should be visible to everyone. The PostgreSQL
 
 *   **User Roles:** `Admin`, `InternalDeveloper`, `ExternalClient`. Users are upserted from Firebase token claims on first request with the default role `ExternalClient`; the database, not the token, is the source of truth for roles.
 *   **Resource Mapping:** `ApiSpec` and `DocNamespace` tables map specific API specs or documentation namespaces to required roles.
+*   **Portal Content:** `ApiSpec.Content` and `DocPage` hold admin-authored content (with who last edited it and when); only `Admin` users can write them.
 *   **API Key Management:** External users can generate and manage their own API keys from a dashboard. The portal stores a SHA-256 hash of each key and returns the plaintext exactly once. API keys are accepted as an alternate authentication scheme on the proxy.
 
 ## 5. Deployment & CI/CD Workflow

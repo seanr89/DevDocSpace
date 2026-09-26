@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ApiSpec> ApiSpecs => Set<ApiSpec>();
     public DbSet<ServiceEnvironment> ServiceEnvironments => Set<ServiceEnvironment>();
     public DbSet<DocNamespace> DocNamespaces => Set<DocNamespace>();
+    public DbSet<DocPage> DocPages => Set<DocPage>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<ApiCallLog> ApiCallLogs => Set<ApiCallLog>();
 
@@ -26,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(s => new { s.Service, s.Version }).IsUnique();
             e.Property(s => s.RequiredRole).HasConversion<string>();
             e.HasMany(s => s.Environments).WithOne(x => x.Spec).HasForeignKey(x => x.SpecId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.ContentUpdatedBy).WithMany().HasForeignKey(s => s.ContentUpdatedById).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ServiceEnvironment>(e =>
@@ -38,6 +40,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasIndex(n => n.Slug).IsUnique();
             e.Property(n => n.RequiredRole).HasConversion<string>();
+        });
+
+        b.Entity<DocPage>(e =>
+        {
+            e.HasIndex(p => new { p.Namespace, p.Path }).IsUnique();
+            e.HasOne(p => p.UpdatedBy).WithMany().HasForeignKey(p => p.UpdatedById).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ApiKey>(e =>
